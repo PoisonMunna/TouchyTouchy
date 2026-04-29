@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TouchyTouchy – Walk With Me</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+        :root {
+            --sky-top: #0f0c29;
+            --sky-mid: #302b63;
+            --sky-bot: #24243e;
+            --ground: #16213e;
+            --ground-top: #4834d4;
+            --accent: #a29bfe;
+            --glow: #6c5ce7;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body, html {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── WORLD ── */
+        #game-world {
+            width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-mid) 60%, var(--sky-bot) 100%);
+            position: relative;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+
+        /* ── STARS ── */
+        #stars-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 80%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* ── MOON ── */
+        .moon {
+            position: absolute;
+            top: 6%; right: 10%;
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fff9c4, #ffffff 60%, #f5f5f5);
+            box-shadow: 0 0 40px 15px rgba(243, 237, 216, 0.3), 0 0 80px 30px rgba(249,202,36,0.1);
+            z-index: 2;
+            animation: moonPulse 4s ease-in-out infinite;
+        }
+        @keyframes moonPulse {
+            0%,100% { box-shadow: 0 0 40px 15px rgba(249,202,36,0.3), 0 0 80px 30px rgba(249,202,36,0.1); }
+            50%      { box-shadow: 0 0 60px 25px rgba(249,202,36,0.5), 0 0 100px 50px rgba(249,202,36,0.15); }
+        }
+
+        /* ── MOUNTAINS (far) ── */
+        .mountains-far {
+            position: absolute;
+            bottom: 20%; left: 0;
+            width: 100%; height: 20%;
+            background:
+                radial-gradient(ellipse 180px 140px at 10%  100%, #1a1560 50%, transparent 100%),
+                radial-gradient(ellipse 240px 170px at 28%  100%, #231b7a 50%, transparent 100%),
+                radial-gradient(ellipse 200px 150px at 48%  100%, #1a1560 50%, transparent 100%),
+                radial-gradient(ellipse 280px 190px at 68%  100%, #231b7a 50%, transparent 100%),
+                radial-gradient(ellipse 210px 160px at 88%  100%, #1a1560 50%, transparent 100%);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* ── GROUND ── */
+        .ground {
+            position: absolute;
+            bottom: 0; width: 100%; height: 20%;
+            background: linear-gradient(to bottom, #1a1a4e 0%, #0d0d26 100%);
+            border-top: 3px solid var(--ground-top);
+            box-shadow: 0 -10px 40px rgba(72,52,212,0.4);
+            z-index: 4;
+            pointer-events: none;
+        }
+        /* ground grid lines */
+        .ground::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(90deg, rgba(108,92,231,0.15) 1px, transparent 1px),
+                linear-gradient(0deg,  rgba(108,92,231,0.1)  1px, transparent 1px);
+            background-size: 80px 40px;
+        }
+
+        /* ── TREES ── */
+        .tree {
+            position: absolute;
+            bottom: 20%;
+            z-index: 5;
+            pointer-events: none;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .tree .trunk {
+            width: 10px; height: 30px;
+            background: linear-gradient(to bottom, #6b4c2a, #4a3320);
+            border-radius: 3px;
+        }
+        .tree .canopy {
+            width: 0; height: 0;
+            border-left: 28px solid transparent;
+            border-right: 28px solid transparent;
+            border-bottom: 55px solid #1e3a22;
+            margin-bottom: -2px;
+            filter: drop-shadow(0 0 6px rgba(50,200,80,0.25));
+        }
+        .tree .canopy2 {
+            width: 0; height: 0;
+            border-left: 22px solid transparent;
+            border-right: 22px solid transparent;
+            border-bottom: 45px solid #265c2a;
+            margin-bottom: -2px;
+        }
+        .tree .canopy3 {
+            width: 0; height: 0;
+            border-left: 16px solid transparent;
+            border-right: 16px solid transparent;
+            border-bottom: 36px solid #2e7234;
+        }
+
+        /* ── CHARACTER ── */
+        #character {
+            width: 80px;
+            height: 120px;
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            z-index: 10;
+            image-rendering: pixelated;
+            transition: left 0.05s linear, top 0.05s linear;
+            filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+        }
+
+        /* ── CLICK TARGET ── */
+        .click-ripple {
+            position: absolute;
+            width: 20px; height: 20px;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9;
+            animation: rippleOut 0.8s ease-out forwards;
+        }
+        @keyframes rippleOut {
+            0%   { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%,-50%) scale(4); opacity: 0; }
+        }
+
+        /* ── FOOTPRINT ── */
+        .footprint {
+            position: absolute;
+            width: 10px; height: 6px;
+            background: rgba(162,155,254,0.35);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 6;
+            animation: fadeFootprint 2.5s ease forwards;
+        }
+        @keyframes fadeFootprint {
+            0%   { opacity: 0.7; }
+            100% { opacity: 0; }
+        }
+
+        /* ── HUD ── */
+        #hud {
+            position: fixed;
+            top: 16px; left: 16px;
+            z-index: 200;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .hud-panel {
+            background: rgba(15,12,41,0.75);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(162,155,254,0.3);
+            border-radius: 12px;
+            padding: 10px 16px;
+            color: white;
+        }
+        .hud-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            letter-spacing: 2px;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+        .hud-val {
+            font-size: 12px;
+            color: rgba(255,255,255,0.75);
+            font-family: 'Orbitron', monospace;
+        }
+
+        /* ── BUTTONS ── */
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        button {
+            padding: 9px 16px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            background: rgba(108,92,231,0.85);
+            color: white;
+            border: 1px solid rgba(162,155,254,0.4);
+            border-radius: 8px;
+            transition: all 0.2s;
+            backdrop-filter: blur(6px);
+        }
+        button:hover { background: rgba(162,155,254,0.9); color: #1a1a2e; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+
+        /* ── INSTRUCTIONS TOAST ── */
+        #toast {
+            position: fixed;
+            bottom: 24px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15,12,41,0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(162,155,254,0.3);
+            border-radius: 30px;
+            padding: 10px 24px;
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            z-index: 200;
+            text-align: center;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        /* ── SPEED INDICATOR ── */
+        #speed-bar-wrap {
+            width: 120px; height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px; margin-top: 6px; overflow: hidden;
+        }
+        #speed-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* ── TITLE SPLASH ── */
+        #title-splash {
+            position: fixed;
+            inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(10,8,30,0.92);
+            z-index: 300;
+            transition: opacity 0.6s;
+        }
+        #title-splash h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(32px, 6vw, 72px);
+            background: linear-gradient(135deg, #a29bfe, #6c5ce7, #fd79a8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 4px;
+            margin-bottom: 12px;
+        }
+        #title-splash p {
+            color: rgba(255,255,255,0.6);
+            font-size: 16px;
+            margin-bottom: 32px;
+            letter-spacing: 1px;
+        }
+        #title-splash .start-btn {
+            padding: 14px 40px;
+            font-size: 16px;
+            font-family: 'Orbitron', sans-serif;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            border: none; border-radius: 40px; color: white;
+            cursor: pointer; letter-spacing: 2px;
+            box-shadow: 0 0 30px rgba(108,92,231,0.5);
+            transition: all 0.3s;
+        }
+        #title-splash .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(108,92,231,0.8);
+        }
+        .key-hint {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-family: monospace;
+            margin: 0 2px;
+            color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+<!-- TITLE SPLASH -->
+<div id="title-splash">
+    <h1>TOUCHY TOUCHY</h1>
+    <p>Click anywhere — or use <span class="key-hint">W A S D</span> / <span class="key-hint">↑ ↓ ← →</span> to move</p>
+    <button class="start-btn" onclick="closeSplash()">START WALKING</button>
+</div>
+
+<div id="game-world">
+    <canvas id="stars-canvas"></canvas>
+    <div class="moon"></div>
+    <div class="mountains-far"></div>
+
+    <!-- Trees will be injected by JS -->
+
+    <div class="ground"></div>
+    <div id="character"></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+    <div class="hud-panel">
+        <div class="hud-title">TOUCHY TOUCHY</div>
+        <div class="hud-val" id="pos-display">X: 0 &nbsp; Y: 0</div>
+        <div class="hud-val" id="dir-display">DIR: –</div>
+        <div id="speed-bar-wrap"><div id="speed-bar"></div></div>
+    </div>
+    <div class="hud-panel btn-group">
+        <button id="fullscreen-btn">⛶ Fullscreen</button>
+        <button id="clear-btn">✦ Clear Trail</button>
+    </div>
+</div>
+
+<div id="toast">🖱️ Click to move &nbsp;|&nbsp; ⌨️ WASD / Arrow Keys &nbsp;|&nbsp; 🌙 Explore the night</div>
+
+<script>
+    // ── SPRITES ──
+    const DIRS = {
+        right: ['images/right_0.png','images/right_1.png','images/right_2.png','images/right_3.png'],
+        left:  ['images/left_0.png', 'images/left_1.png', 'images/left_2.png', 'images/left_3.png'],
+        up:    ['images/up_0.png',   'images/up_1.png',   'images/up_2.png',   'images/up_3.png'],
+        down:  ['images/down_0.png', 'images/down_1.png', 'images/down_2.png', 'images/down_3.png'],
+    };
+
+    const character  = document.getElementById('character');
+    const world      = document.getElementById('game-world');
+    const fsBtn      = document.getElementById('fullscreen-btn');
+    const clearBtn   = document.getElementById('clear-btn');
+    const posDisplay = document.getElementById('pos-display');
+    const dirDisplay = document.getElementById('dir-display');
+    const speedBar   = document.getElementById('speed-bar');
+
+    // ── STATE ──
+    let charX = window.innerWidth / 2 - 40;
+    let charY = window.innerHeight * 0.8 - 120; // ground level
+    const GROUND_Y = () => window.innerHeight * 0.8 - 120;
+
+    let currentDir = 'down';
+    let currentFrame = 0;
+    let isWalking = false;
+    let animInterval = null;
+    let walkTimeout = null;
+
+    // Movement
+    let targetX = charX, targetY = charY;
+    let moveRAF = null;
+    const SPEED = 3; // px per frame
+
+    // Keyboard state
+    const keys = {};
+    let keyInterval = null;
+    const KEY_SPEED = 4;
+
+    // ── INIT CHARACTER ──
+    character.style.left = charX + 'px';
+    character.style.top  = charY + 'px';
+    setFrame();
+
+    function setFrame() {
+        const frames = DIRS[currentDir];
+        character.style.backgroundImage = `url('${frames[currentFrame]}')`;
+    }
+
+    function startAnimation(dir) {
+        currentDir = dir;
+        if (!isWalking) {
+            isWalking = true;
+            animInterval = setInterval(() => {
+                currentFrame = (currentFrame + 1) % 4;
+                setFrame();
+                spawnFootprint();
+            }, 140);
+        }
+    }
+
+    function stopAnimation() {
+        isWalking = false;
+        clearInterval(animInterval);
+        animInterval = null;
+        currentFrame = 0;
+        setFrame();
+        speedBar.style.width = '0%';
+    }
+
+    // ── DIRECTION DETECTION ──
+    function getDir(dx, dy) {
+        if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+        return dy > 0 ? 'down' : 'up';
+    }
+
+    // ── CLICK MOVEMENT ──
+    world.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        const tx = e.clientX - 40;
+        const ty = Math.min(e.clientY - 60, GROUND_Y()); // clamp to ground
+        moveTo(tx, ty);
+        spawnRipple(e.clientX, e.clientY);
+    });
+
+    function moveTo(tx, ty) {
+        targetX = tx; targetY = ty;
+        clearTimeout(walkTimeout);
+        if (moveRAF) cancelAnimationFrame(moveRAF);
+
+        const dx = targetX - charX;
+        const dy = targetY - charY;
+        const dir = getDir(dx, dy);
+        startAnimation(dir);
+        dirDisplay.textContent = 'DIR: ' + dir.toUpperCase();
+        speedBar.style.width = '80%';
+
+        function step() {
+            const dx = targetX - charX;
+            const dy = targetY - charY;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < SPEED + 1) {
+                charX = targetX; charY = targetY;
+                character.style.left = charX + 'px';
+                character.style.top  = charY + 'px';
+                stopAnimation();
+                dirDisplay.textContent = 'DIR: IDLE';
+                updateHUD();
+                return;
+            }
+
+            charX += (dx / dist) * SPEED;
+            charY += (dy / dist) * SPEED;
+            character.style.left = charX + 'px';
+            character.style.top  = charY + 'px';
+
+            const newDir = getDir(dx, dy);
+            if (newDir !== currentDir) {
+                currentDir = newDir;
+                dirDisplay.textContent = 'DIR: ' + newDir.toUpperCase();
+            }
+
+            updateHUD();
+            moveRAF = requestAnimationFrame(step);
+        }
+        moveRAF = requestAnimationFrame(step);
+    }
+
+    // ── KEYBOARD MOVEMENT ──
+    document.addEventListener('keydown', e => {
+        keys[e.key] = true;
+        if (!keyInterval) keyInterval = setInterval(handleKeys, 16);
+    });
+    document.addEventListener('keyup', e => {
+        keys[e.key] = false;
+        if (!Object.values(keys).some(Boolean)) {
+            clearInterval(keyInterval);
+            keyInterval = null;
+            if (moveRAF) cancelAnimationFrame(moveRAF);
+            stopAnimation();
+            dirDisplay.textContent = 'DIR: IDLE';
+        }
+    });
+
+    function handleKeys() {
+        let dx = 0, dy = 0;
+        if (keys['ArrowLeft']  || keys['a'] || keys['A']) dx -= KEY_SPEED;
+        if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += KEY_SPEED;
+        if (keys['ArrowUp']    || keys['w'] || keys['W']) dy -= KEY_SPEED;
+        if (keys['ArrowDown']  || keys['s'] || keys['S']) dy += KEY_SPEED;
+        if (dx === 0 && dy === 0) return;
+
+        const dir = getDir(dx, dy);
+        startAnimation(dir);
+        currentDir = dir;
+
+        charX = Math.max(0, Math.min(window.innerWidth - 80,  charX + dx));
+        charY = Math.max(0, Math.min(GROUND_Y(), charY + dy));
+        character.style.left = charX + 'px';
+        character.style.top  = charY + 'px';
+        dirDisplay.textContent = 'DIR: ' + dir.toUpperCase();
+        speedBar.style.width = '60%';
+        updateHUD();
+    }
+
+    // ── HUD UPDATE ──
+    function updateHUD() {
+        posDisplay.innerHTML = `X: ${Math.round(charX)} &nbsp; Y: ${Math.round(charY)}`;
+    }
+
+    // ── FOOTPRINTS ──
+    function spawnFootprint() {
+        const fp = document.createElement('div');
+        fp.className = 'footprint';
+        fp.style.left = (charX + 35) + 'px';
+        fp.style.top  = (charY + 110) + 'px';
+        world.appendChild(fp);
+        fp.addEventListener('animationend', () => fp.remove());
+    }
+
+    // ── CLICK RIPPLE ──
+    function spawnRipple(cx, cy) {
+        const r = document.createElement('div');
+        r.className = 'click-ripple';
+        r.style.left = cx + 'px';
+        r.style.top  = cy + 'px';
+        world.appendChild(r);
+        r.addEventListener('animationend', () => r.remove());
+    }
+
+    // ── CLEAR FOOTPRINTS ──
+    clearBtn.addEventListener('click', () => {
+        document.querySelectorAll('.footprint').forEach(f => f.remove());
+    });
+
+    // ── FULLSCREEN ──
+    fsBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            fsBtn.textContent = '✕ Exit Fullscreen';
+        } else {
+            document.exitFullscreen();
+            fsBtn.textContent = '⛶ Fullscreen';
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) fsBtn.textContent = '⛶ Fullscreen';
+    });
+
+    // ── STARS ──
+    const canvas = document.getElementById('stars-canvas');
+    const ctx = canvas.getContext('2d');
+    function resizeCanvas() {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight * 0.8;
+        drawStars();
+    }
+    const starList = [];
+    function buildStars() {
+        starList.length = 0;
+        for (let i = 0; i < 200; i++) {
+            starList.push({
+                x: Math.random(), y: Math.random(),
+                r: Math.random() * 1.8 + 0.3,
+                alpha: Math.random() * 0.7 + 0.3,
+                speed: Math.random() * 0.005 + 0.001
+            });
+        }
+    }
+    function drawStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        starList.forEach(s => {
+            ctx.beginPath();
+            ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+            ctx.fill();
+        });
+    }
+    function animateStars() {
+        starList.forEach(s => {
+            s.alpha += s.speed * (Math.random() > 0.5 ? 1 : -1);
+            s.alpha = Math.max(0.1, Math.min(1, s.alpha));
+        });
+        drawStars();
+        requestAnimationFrame(animateStars);
+    }
+    buildStars();
+    resizeCanvas();
+    animateStars();
+    window.addEventListener('resize', resizeCanvas);
+
+    // ── TREES ──
+    const treePositions = [5, 15, 25, 75, 85, 92];
+    treePositions.forEach(pct => {
+        const t = document.createElement('div');
+        t.className = 'tree';
+        t.style.left = pct + '%';
+        const scale = 0.7 + Math.random() * 0.6;
+        t.style.transform = `scale(${scale})`;
+        t.style.transformOrigin = 'bottom center';
+        t.innerHTML = `
+            <div class="canopy3"></div>
+            <div class="canopy2"></div>
+            <div class="canopy"></div>
+            <div class="trunk"></div>
+        `;
+        world.insertBefore(t, world.querySelector('.ground'));
+    });
+
+    // ── SPLASH ──
+    function closeSplash() {
+        const s = document.getElementById('title-splash');
+        s.style.opacity = '0';
+        setTimeout(() => s.remove(), 600);
+    }
+
+    // ── TOAST FADE ──
+    setTimeout(() => {
+        const t = document.getElementById('toast');
+        if (t) t.style.opacity = '0';
+        setTimeout(() => { if (t) t.remove(); }, 600);
+    }, 5000);
+</script>
+</body>
+</html>
